@@ -32,15 +32,15 @@ contract Roles is AccessControl {
         return hasRole(DEFAULT_ADMIN_ROLE, _account);
     }
 
-    function hasSuperAdminRole(address _account) public view returns (bool) {
+    function hasSuperAdminRole(address _account) internal view returns (bool) {
         return hasRole(SUPER_ADMIN_ROLE, _account);
     }
 
-    function hasAdminRole(address _account) public view returns (bool) {
+    function hasAdminRole(address _account) internal view returns (bool) {
         return hasRole(ADMIN_ROLE, _account);
     }
 
-    function hasInstitutionRole(address _account) public view returns (bool) {
+    function hasInstitutionRole(address _account) internal view returns (bool) {
         return hasRole(INSTITUTION_ROLE, _account);
     }
 
@@ -61,7 +61,7 @@ contract Roles is AccessControl {
     }
 
     /*** Role Management ***/
-    function addSuperAdmin(address _account) public {
+    function addSuperAdmin(address _account) external {
         requireOwnerOrSuperAdmin(msg.sender); // Only Contract Owner or Super Admins can add other Super Admins
         require(!hasSuperAdminRole(_account), "Roles: User is already a Super Admin");
         grantRole(SUPER_ADMIN_ROLE, _account);
