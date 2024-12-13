@@ -21,7 +21,7 @@ contract RolesTest is Test {
 
     /*** Basic Role Assignment Tests ***/
 
-    function testOwnerRoleOnDeploy() public {
+    function testOwnerRoleOnDeploy() public view {
         // Check that the deployer has the DEFAULT_ADMIN_ROLE
         assertTrue(roles.hasRole(roles.DEFAULT_ADMIN_ROLE(), owner));
     }
