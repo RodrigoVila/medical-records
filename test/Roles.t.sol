@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "../src/Roles.sol";
@@ -7,96 +7,80 @@ import "../src/Roles.sol";
 contract RolesTest is Test {
     Roles roles;
 
-    address owner = address(0x1);
+    address owner = address(0x1); // Default Admin Role (Owner)
     address superAdmin = address(0x2);
     address admin = address(0x3);
     address institution = address(0x4);
     address unauthorized = address(0x5);
 
     function setUp() public {
-        // Deploy the contract
-        vm.prank(owner); // Simulate deployment by the owner
+        // Deploy the Roles contract as the owner
+        vm.prank(owner);
         roles = new Roles();
     }
 
-    /*** Basic Role Assignment Tests ***/
+    /*** Role Assignment Tests ***/
 
-    function testOwnerRoleOnDeploy() public view {
-        // Check that the deployer has the DEFAULT_ADMIN_ROLE
+    function testOwnerIsDefaultAdminOnDeploy() public view {
         assertTrue(roles.hasRole(roles.DEFAULT_ADMIN_ROLE(), owner));
     }
 
-    function testAddSuperAdmin() public {
-        // Add Super Admin
+    function testAddSuperAdminByOwner() public {
         vm.prank(owner);
         roles.addSuperAdmin(superAdmin);
 
-        // Check Super Admin role
         assertTrue(roles.hasSuperAdminRole(superAdmin));
     }
 
-    function testAddAdmin() public {
-        // Add Super Admin first
+    function testAddAdminBySuperAdmin() public {
         vm.prank(owner);
         roles.addSuperAdmin(superAdmin);
 
-        // Add Admin
         vm.prank(superAdmin);
         roles.addAdmin(admin);
 
-        // Check Admin role
         assertTrue(roles.hasAdminRole(admin));
     }
 
-    function testAddInstitution() public {
-        // Add Super Admin and Admin
+    function testAddInstitutionByAdmin() public {
         vm.prank(owner);
         roles.addSuperAdmin(superAdmin);
 
         vm.prank(superAdmin);
         roles.addAdmin(admin);
 
-        // Add Institution
         vm.prank(admin);
         roles.addInstitution(institution);
 
-        // Check Institution role
         assertTrue(roles.hasInstitutionRole(institution));
     }
 
     /*** Role Revocation Tests ***/
 
-    function testRevokeSuperAdmin() public {
-        // Add Super Admin
+    function testRevokeSuperAdminByOwner() public {
         vm.prank(owner);
         roles.addSuperAdmin(superAdmin);
 
-        // Revoke Super Admin
         vm.prank(owner);
         roles.revokeSuperAdmin(superAdmin);
 
-        // Check Super Admin role
         assertFalse(roles.hasSuperAdminRole(superAdmin));
     }
 
-    function testRevokeAdmin() public {
-        // Add Super Admin and Admin
+    function testRevokeAdminBySuperAdmin() public {
         vm.prank(owner);
         roles.addSuperAdmin(superAdmin);
 
         vm.prank(superAdmin);
         roles.addAdmin(admin);
 
-        // Revoke Admin
         vm.prank(superAdmin);
         roles.revokeAdmin(admin);
 
-        // Check Admin role
         assertFalse(roles.hasAdminRole(admin));
     }
 
-    function testRevokeInstitution() public {
-        // Add Super Admin, Admin, and Institution
+    function testRevokeInstitutionByAdmin() public {
         vm.prank(owner);
         roles.addSuperAdmin(superAdmin);
 
@@ -106,79 +90,119 @@ contract RolesTest is Test {
         vm.prank(admin);
         roles.addInstitution(institution);
 
-        // Revoke Institution
         vm.prank(admin);
         roles.revokeInstitution(institution);
 
-        // Check Institution role
         assertFalse(roles.hasInstitutionRole(institution));
     }
 
     /*** Access Control Tests ***/
 
-    function testOnlyOwnerCanRevokeSuperAdmin() public {
-        // Add Super Admin
-        vm.prank(owner);
-        roles.addSuperAdmin(superAdmin);
-
-        // Attempt to revoke Super Admin as unauthorized user
-        vm.expectRevert("Roles: Only Contract Owner can do this");
+    function testOnlyOwnerCanAddSuperAdmin() public {
+        vm.expectRevert("Roles: Only Contract Owner or Super Admin can do this");
         vm.prank(unauthorized);
-        roles.revokeSuperAdmin(superAdmin);
+        roles.addSuperAdmin(superAdmin);
     }
 
     function testOnlySuperAdminCanAddAdmin() public {
-        // Attempt to add Admin as unauthorized user
         vm.expectRevert("Roles: Only Contract Owner or Super Admin can do this");
         vm.prank(unauthorized);
         roles.addAdmin(admin);
     }
 
     function testOnlyAdminCanAddInstitution() public {
-        // Add Super Admin and Admin
         vm.prank(owner);
         roles.addSuperAdmin(superAdmin);
 
         vm.prank(superAdmin);
         roles.addAdmin(admin);
 
-        // Attempt to add Institution as unauthorized user
         vm.expectRevert("Roles: Only Admin can do this");
         vm.prank(unauthorized);
         roles.addInstitution(institution);
     }
 
-    function testOnlySuperAdminCanRevokeAdmin() public {
-        // Add Super Admin and Admin
+    function testOnlyOwnerCanRevokeSuperAdmin() public {
+        vm.prank(owner);
+        roles.addSuperAdmin(superAdmin);
+
+        vm.expectRevert("Roles: Only Contract Owner can do this");
+        vm.prank(superAdmin);
+        roles.revokeSuperAdmin(superAdmin);
+    }
+
+    function testInstitutionCannotAddOtherRoles() public {
         vm.prank(owner);
         roles.addSuperAdmin(superAdmin);
 
         vm.prank(superAdmin);
         roles.addAdmin(admin);
 
-        // Attempt to revoke Admin as unauthorized user
-        vm.expectRevert("Roles: Only Contract Owner or Super Admin can do this");
-        vm.prank(unauthorized);
-        roles.revokeAdmin(admin);
+        vm.prank(admin);
+        roles.addInstitution(institution);
+
+        vm.expectRevert("Roles: Only Admin can do this");
+        vm.prank(institution);
+        roles.addInstitution(unauthorized);
     }
 
     /*** Edge Case Tests ***/
 
-    function testCannotAddSameRoleTwice() public {
-        // Add Super Admin
+    function testCannotAddDuplicateSuperAdmin() public {
         vm.prank(owner);
         roles.addSuperAdmin(superAdmin);
 
-        // Attempt to add same role again
         vm.expectRevert("Roles: User is already a Super Admin");
         vm.prank(owner);
         roles.addSuperAdmin(superAdmin);
     }
 
-    function testCannotRevokeRoleNotAssigned() public {
-        // Attempt to revoke a Super Admin role from an account without it
+    function testCannotAddDuplicateAdmin() public {
+        vm.prank(owner);
+        roles.addSuperAdmin(superAdmin);
+
+        vm.prank(superAdmin);
+        roles.addAdmin(admin);
+
+        vm.expectRevert("Roles: User is already an Admin");
+        vm.prank(superAdmin);
+        roles.addAdmin(admin);
+    }
+
+    function testCannotAddDuplicateInstitution() public {
+        vm.prank(owner);
+        roles.addSuperAdmin(superAdmin);
+
+        vm.prank(superAdmin);
+        roles.addAdmin(admin);
+
+        vm.prank(admin);
+        roles.addInstitution(institution);
+
+        vm.expectRevert("Roles: User is already an Institution");
+        vm.prank(admin);
+        roles.addInstitution(institution);
+    }
+
+    function testCannotRevokeNonexistentRole() public {
         vm.expectRevert("Roles: User was not a Super Admin");
         vm.prank(owner);
         roles.revokeSuperAdmin(superAdmin);
+    }
+
+    function testSuperAdminCannotRevokeOwner() public {
+        vm.prank(owner);
+        roles.addSuperAdmin(superAdmin);
+
+        vm.expectRevert("Roles: Only Contract Owner can do this");
+        vm.prank(superAdmin);
+        roles.revokeSuperAdmin(owner);
+    }
+
+    function testOwnerCanGrantSuperAdmin() public {
+        vm.prank(owner);
+        roles.addSuperAdmin(superAdmin);
+
+        assertTrue(roles.hasSuperAdminRole(superAdmin));
     }
 }
